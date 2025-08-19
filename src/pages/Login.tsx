@@ -20,34 +20,33 @@ const Login = () => {
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+  e.preventDefault();
+  setIsLoading(true);
 
-    try {
-      const success = await login(email, password, role);
-      if (success) {
-        toast({
-          title: "Welcome to Artifex!",
-          description: "You have successfully logged in.",
-        });
-        
-        // Redirect based on role
-        if (role === 'artist') {
-          navigate('/dashboard');
-        } else {
-          navigate('/');
-        }
-      }
-    } catch (error) {
-      toast({
-        title: "Login Failed",
-        description: "Please check your credentials and try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  try {
+    const success = await login(email, password, role);
+    if (success) {
+  toast({
+    title: "Welcome to Artifex!",
+    description: "You have successfully logged in.",
+  });
+
+  if (role === "artist") {
+    navigate("/dashboard/artist");
+  } else {
+    navigate("/dashboard/bidder");
+  }
+}
+  } catch (error) {
+    toast({
+      title: "Login Failed",
+      description: "Please check your credentials and try again.",
+      variant: "destructive",
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
