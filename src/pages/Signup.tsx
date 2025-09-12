@@ -54,9 +54,7 @@ const Signup = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!validateForm()) return;
-    
     setIsLoading(true);
 
     try {
@@ -67,20 +65,20 @@ const Signup = () => {
         role,
         portfolioLink: role === 'artist' ? formData.portfolioLink : undefined,
       });
-      
+
       if (success) {
         toast({
           title: "Welcome to Artifex!",
           description: "Your account has been created successfully.",
         });
-        
-        // Redirect based on role
-        if (role === 'artist') {
-          navigate('/dashboard');
+
+        if (role === "artist") {
+          navigate("/dashboard/artist");
         } else {
-          navigate('/');
+          navigate("/dashboard/user");
         }
       }
+
     } catch (error) {
       toast({
         title: "Signup Failed",

@@ -106,11 +106,12 @@ const Navbar = () => {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuItem asChild>
-                <Link to={user.role === 'artist' ? "/dashboard/artist" : "/dashboard/user"} className="flex items-center space-x-2">
+                <Link to={user.role === "artist" ? "/dashboard/artist/profile" : "/dashboard/user/profile"} className="flex items-center space-x-2">
                   <User className="h-4 w-4" />
                   <span>Profile</span>
                 </Link>
               </DropdownMenuItem>
+
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="flex items-center space-x-2 text-destructive">
                 <LogOut className="h-4 w-4" />
