@@ -1,52 +1,61 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Palette, Loader2, Gavel, Brush } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Palette, Loader2, Gavel, Brush } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'artist' | 'bidder'>('bidder');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState<"artist" | "bidder">("bidder");
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const { login } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setIsLoading(true);
+    e.preventDefault();
+    setIsLoading(true);
 
-  try {
-    const success = await login(email, password, role);
-    if (success) {
+    try {
+      const success = await login(email, password, role);
+      if (success) {
+        toast({
+          title: "Welcome to Artifex!",
+          description: "You have successfully logged in.",
+        });
+
+        if (success) {
   toast({
     title: "Welcome to Artifex!",
     description: "You have successfully logged in.",
   });
 
+  // ✅ Use user role from backend, not just local state
   if (role === "artist") {
-    navigate("/dashboard/artist");
+    navigate("/dashboard/artist"); 
   } else {
-    navigate("/dashboard/bidder");
+    navigate("/dashboard/bidder"); // <-- change to bidder not "user"
   }
 }
-  } catch (error) {
-    toast({
-      title: "Login Failed",
-      description: "Please check your credentials and try again.",
-      variant: "destructive",
-    });
-  } finally {
-    setIsLoading(false);
-  }
-};
+
+      } else {
+        toast({
+          title: "Login Failed",
+          description: "Please check your credentials and try again.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
@@ -54,7 +63,9 @@ const Login = () => {
         <div className="text-center mb-8">
           <Link to="/" className="flex items-center justify-center space-x-2 mb-4">
             <Palette className="h-10 w-10 text-saffron" />
-            <span className="text-2xl font-bold font-serif bg-gradient-to-r from-saffron to-clay bg-clip-text text-transparent">Artifex</span>
+            <span className="text-2xl font-bold font-serif bg-gradient-to-r from-saffron to-clay bg-clip-text text-transparent">
+              Artifex
+            </span>
           </Link>
           <h1 className="text-3xl font-bold text-foreground">Welcome Back</h1>
           <p className="text-muted-foreground mt-2">Choose your account type to continue</p>
@@ -68,7 +79,7 @@ const Login = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs value={role} onValueChange={(value) => setRole(value as 'artist' | 'bidder')} className="mb-6">
+            <Tabs value={role} onValueChange={(value) => setRole(value as "artist" | "bidder")} className="mb-6">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="bidder" className="flex items-center space-x-2">
                   <Gavel className="h-4 w-4" />
@@ -79,13 +90,13 @@ const Login = () => {
                   <span>Artist</span>
                 </TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="bidder" className="mt-4">
                 <div className="text-center text-sm text-muted-foreground">
                   Discover and bid on amazing artworks from talented artists
                 </div>
               </TabsContent>
-              
+
               <TabsContent value="artist" className="mt-4">
                 <div className="text-center text-sm text-muted-foreground">
                   Showcase your art and connect with collectors worldwide
@@ -106,7 +117,7 @@ const Login = () => {
                   className="transition-all duration-300 focus:shadow-md"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <Input
@@ -120,10 +131,10 @@ const Login = () => {
                 />
               </div>
 
-              <Button 
-                type="submit" 
-                className="w-full" 
-                variant={role === 'artist' ? 'premium' : 'auction'}
+              <Button
+                type="submit"
+                className="w-full"
+                variant={role === "artist" ? "premium" : "auction"}
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -132,7 +143,7 @@ const Login = () => {
                     Signing in...
                   </>
                 ) : (
-                  `Login as ${role === 'artist' ? 'Artist' : 'Bidder'}`
+                  `Login as ${role === "artist" ? "Artist" : "Bidder"}`
                 )}
               </Button>
             </form>
@@ -142,7 +153,7 @@ const Login = () => {
                 Forgot your password?
               </Link>
               <div className="text-sm text-muted-foreground">
-                Don't have an account?{' '}
+                Don&apos;t have an account?{" "}
                 <Link to="/signup" className="text-primary hover:underline font-medium">
                   Sign up here
                 </Link>

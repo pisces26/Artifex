@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { useAuth } from '@/context/AuthContext';
+import {useAuth} from '@/context/AuthContext';
 import { Clock, Gavel, User, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 

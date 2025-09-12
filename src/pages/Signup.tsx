@@ -53,42 +53,42 @@ const Signup = () => {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!validateForm()) return;
-  setIsLoading(true);
+    e.preventDefault();
+    if (!validateForm()) return;
+    setIsLoading(true);
 
-  try {
-    const success = await signup({
-      name: formData.name,
-      email: formData.email,
-      password: formData.password,
-      role,
-      portfolioLink: role === 'artist' ? formData.portfolioLink : undefined,
-    });
+    try {
+      const success = await signup({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        role,
+        portfolioLink: role === 'artist' ? formData.portfolioLink : undefined,
+      });
 
-    if (success) {
-  toast({
-    title: "Welcome to Artifex!",
-    description: "Your account has been created successfully.",
-  });
+      if (success) {
+        toast({
+          title: "Welcome to Artifex!",
+          description: "Your account has been created successfully.",
+        });
 
-  if (role === "artist") {
-    navigate("/dashboard/artist");
-  } else {
-    navigate("/dashboard/bidder");
-  }
-}
+        if (role === "artist") {
+          navigate("/dashboard/artist");
+        } else {
+          navigate("/dashboard/user");
+        }
+      }
 
-  } catch (error) {
-    toast({
-      title: "Signup Failed",
-      description: "Something went wrong. Please try again.",
-      variant: "destructive",
-    });
-  } finally {
-    setIsLoading(false);
-  }
-};
+    } catch (error) {
+      toast({
+        title: "Signup Failed",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">

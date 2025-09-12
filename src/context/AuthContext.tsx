@@ -1,72 +1,51 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
 
-interface User {
+export interface User {
   id: string;
   name: string;
   email: string;
   role: "artist" | "bidder";
+  portfolioLink?: string;
+}
+
+interface SignupData {
+  name: string;
+  email: string;
+  password: string;
+  role: "artist" | "bidder";
+  portfolioLink?: string;
 }
 
 interface AuthContextType {
   user: User | null;
-  token: string | null;
   login: (email: string, password: string, role: "artist" | "bidder") => Promise<boolean>;
-  signup: (data: {
-    name: string;
-    email: string;
-    password: string;
-    role: "artist" | "bidder";
-    portfolioLink?: string;
-  }) => Promise<boolean>;
+  signup: (data: SignupData) => Promise<boolean>;
   logout: () => void;
-  loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
-  // Restore session from localStorage
   useEffect(() => {
-  const savedToken = localStorage.getItem("token");
-  const savedUser = localStorage.getItem("user");
-
-  if (savedToken && savedUser) {
     try {
-      const parsedUser = JSON.parse(savedUser);
-      setToken(savedToken);
-      setUser(parsedUser);
-    } catch (error) {
-      console.error("Failed to parse saved user:", error);
-      localStorage.removeItem("user"); // clean up bad value
+      const stored = localStorage.getItem("user");
+      if (stored) {
+        setUser(JSON.parse(stored));
+      }
+    } catch (err) {
+      console.error("Invalid user in localStorage:", err);
+      localStorage.removeItem("user");
     }
-  }
-  setLoading(false);
-}, []);
+  }, []);
 
-
-  // helper to store session + redirect
-  const handleAuthSuccess = (data: any) => {
-    localStorage.setItem("token", data.token);
-    localStorage.setItem("user", JSON.stringify(data.user));
-
-    setToken(data.token);
-    setUser(data.user);
-
-    if (data.user.role === "artist") {
-      navigate("/dashboard/artist");
-    } else {
-      navigate("/dashboard/bidder");
-    }
-  };
-
-  // 🔑 Login function
-  const login = async (email: string, password: string, role: "artist" | "bidder") => {
+  // ✅ LOGIN
+  const login = async (
+    email: string,
+    password: string,
+    role: "artist" | "bidder"
+  ): Promise<boolean> => {
     try {
       const res = await fetch("http://localhost:5000/api/auth/login", {
         method: "POST",
@@ -75,60 +54,70 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (!res.ok) return false;
+      const result = await res.json();
 
-      const data = await res.json();
-      handleAuthSuccess(data);
+      const loggedUser: User = {
+        id: result.user?.id ?? "",
+        name: result.user?.name ?? "User",
+        email: result.user?.email ?? email,
+        role: result.user?.role ?? role,
+        portfolioLink: result.user?.portfolioLink,
+      };
+
+      setUser(loggedUser);
+      localStorage.setItem("user", JSON.stringify(loggedUser));
+
       return true;
-    } catch (error) {
-      console.error("Login error:", error);
+    } catch (err) {
+      console.error("Login error:", err);
       return false;
     }
   };
 
-  // 📝 Signup function (auto login)
-  const signup = async (formData: {
-    name: string;
-    email: string;
-    password: string;
-    role: "artist" | "bidder";
-    portfolioLink?: string;
-  }) => {
+  // ✅ SIGNUP
+  const signup = async (data: SignupData): Promise<boolean> => {
     try {
       const res = await fetch("http://localhost:5000/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(data),
       });
 
       if (!res.ok) return false;
+      const result = await res.json();
 
-      const data = await res.json();
-      handleAuthSuccess(data); // auto login after signup
+      const newUser: User = {
+        id: result.user?.id ?? "",
+        name: result.user?.name ?? data.name,
+        email: result.user?.email ?? data.email,
+        role: result.user?.role ?? data.role,
+        portfolioLink: result.user?.portfolioLink ?? data.portfolioLink,
+      };
+
+      setUser(newUser);
+      localStorage.setItem("user", JSON.stringify(newUser));
+
       return true;
-    } catch (error) {
-      console.error("Signup error:", error);
+    } catch (err) {
+      console.error("Signup error:", err);
       return false;
     }
   };
 
-  // 🚪 Logout function
   const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    setToken(null);
     setUser(null);
-    navigate("/login");
+    localStorage.removeItem("user");
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, signup, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, signup, logout }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error("useAuth must be used within AuthProvider");
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
+  return ctx;
 };
