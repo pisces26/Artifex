@@ -33,15 +33,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Restore session from localStorage
   useEffect(() => {
-    const savedToken = localStorage.getItem("token");
-    const savedUser = localStorage.getItem("user");
+  const savedToken = localStorage.getItem("token");
+  const savedUser = localStorage.getItem("user");
 
-    if (savedToken && savedUser) {
+  if (savedToken && savedUser) {
+    try {
+      const parsedUser = JSON.parse(savedUser);
       setToken(savedToken);
-      setUser(JSON.parse(savedUser));
+      setUser(parsedUser);
+    } catch (error) {
+      console.error("Failed to parse saved user:", error);
+      localStorage.removeItem("user"); // clean up bad value
     }
-    setLoading(false);
-  }, []);
+  }
+  setLoading(false);
+}, []);
+
 
   // helper to store session + redirect
   const handleAuthSuccess = (data: any) => {
