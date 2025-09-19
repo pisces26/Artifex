@@ -61,7 +61,13 @@ const App = () => (
               </ProtectedRoute>
             </Layout>
           } />
-          
+          <Route path="/dashboard/artist/profile" element={
+            <Layout>
+              <ProtectedRoute requireAuth={true} requiredRole="artist">
+                <UserProfile />
+              </ProtectedRoute>
+            </Layout>
+          } />
           
 
           {/* Catch-all */}

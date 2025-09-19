@@ -63,9 +63,9 @@ const Navbar = () => {
           <div className="flex items-center space-x-6">
             {user.role === 'artist' ? (
               <>
-                <Link to="/dashboard/artist" className="flex items-center space-x-1 text-foreground hover:text-primary transition-colors">
+              <Link to="/" className="flex items-center space-x-1 text-foreground hover:text-primary transition-colors">
                   <Home className="h-4 w-4" />
-                  <span>Dashboard</span>
+                  <span>Home</span>
                 </Link>
                 <Link to="/auctions/live" className="flex items-center space-x-1 text-foreground hover:text-primary transition-colors">
                   <Gavel className="h-4 w-4" />
@@ -74,6 +74,10 @@ const Navbar = () => {
                 <Link to="/auctions/upcoming" className="flex items-center space-x-1 text-foreground hover:text-primary transition-colors">
                   <Clock className="h-4 w-4" />
                   <span>Upcoming</span>
+                </Link>
+                <Link to="/dashboard/artist" className="flex items-center space-x-1 text-foreground hover:text-primary transition-colors">
+                  <Home className="h-4 w-4" />
+                  <span>Dashboard</span>
                 </Link>
               </>
             ) : (
