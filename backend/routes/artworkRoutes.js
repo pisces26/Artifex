@@ -1,21 +1,22 @@
 import express from "express";
 import multer from "multer";
+import { verifyToken, requireRole } from "../middleware/authMiddleware.js";
 import Artwork from "../models/Artwork.js";
-import { verifyToken, requireRole } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// Multer configuration for file upload
+// Multer
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, "uploads/artworks"),
   filename: (req, file, cb) => cb(null, Date.now() + "-" + file.originalname),
 });
 const upload = multer({ storage });
 
-// Upload artwork (only artists)
+// Upload artwork
 router.post("/upload", verifyToken, requireRole("artist"), upload.single("image"), async (req, res) => {
   try {
     const { title, description, category, basePrice, auctionDate } = req.body;
+    if (!req.file) return res.status(400).json({ success: false, message: "Image required" });
 
     const artwork = new Artwork({
       title,
@@ -35,11 +36,11 @@ router.post("/upload", verifyToken, requireRole("artist"), upload.single("image"
   }
 });
 
-// Get all artworks by logged-in artist
+// Get artist artworks
 router.get("/my-artworks", verifyToken, requireRole("artist"), async (req, res) => {
   try {
-    const artworks = await Artwork.find({ artist: req.user.id });
-    res.json(artworks);
+    const artworks = await Artwork.find({ artist: req.user.id }).sort({ createdAt: -1 });
+    res.json({ success: true, artworks });
   } catch (err) {
     res.status(500).json({ success: false, message: "Server error" });
   }

@@ -20,42 +20,30 @@ const Login = () => {
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+  e.preventDefault();
+  setIsLoading(true);
+  try {
+    const res = await fetch("http://localhost:5000/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, role }),
+    });
 
-    try {
-      const success = await login(email, password, role);
-      if (success) {
-        toast({
-          title: "Welcome to Artifex!",
-          description: "You have successfully logged in.",
-        });
+    const data = await res.json();
 
-        if (success) {
-  toast({
-    title: "Welcome to Artifex!",
-    description: "You have successfully logged in.",
-  });
+    if (res.ok) {
+      localStorage.setItem("token", data.token); // ✅ Save token
+      toast({ title: "Login successful" });
 
-  // ✅ Use user role from backend, not just local state
-  if (role === "artist") {
-    navigate("/dashboard/artist"); 
-  } else {
-    navigate("/dashboard/bidder"); // <-- change to bidder not "user"
-  }
-}
-
-      } else {
-        toast({
-          title: "Login Failed",
-          description: "Please check your credentials and try again.",
-          variant: "destructive",
-        });
-      }
-    } finally {
-      setIsLoading(false);
+      if (role === "artist") navigate("/dashboard/artist");
+      else navigate("/dashboard/bidder");
+    } else {
+      toast({ title: "Login failed", description: data.message, variant: "destructive" });
     }
-  };
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
