@@ -19,23 +19,15 @@ const LiveAuctionDetails = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
-  
-  const [bidAmount, setBidAmount] = useState('');
-  const [currentBid, setCurrentBid] = useState(22000);
-  const [timeRemaining, setTimeRemaining] = useState(2 * 60 * 60 * 1000); // 2 hours in ms
-  
-  // Mock artwork data
-  const artwork = {
-    id: '1',
-    title: 'Abstract Dreams',
-    description: 'A vibrant abstract painting exploring the depths of imagination. This piece represents the artist\'s journey through colors and emotions, creating a symphony of visual elements that speak to the soul.',
-    imageUrl: '/src/assets/artwork-1.jpg',
-    basePrice: 15000,
-    artistName: 'Priya Sharma',
-    status: 'live',
-  };
 
-  // Mock bid history
+  const [artwork, setArtwork] = useState<any>(null);
+  const [bidAmount, setBidAmount] = useState('');
+  const [currentBid, setCurrentBid] = useState(0);
+  const [isLive, setIsLive] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  // Mock bid history - in a real app, this would come from backend
   const [bidHistory] = useState<BidHistory[]>([
     { id: '1', bidder: 'User***23', amount: 22000, timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString() },
     { id: '2', bidder: 'Art***er', amount: 20000, timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString() },
@@ -44,12 +36,64 @@ const LiveAuctionDetails = () => {
   ]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeRemaining(prev => Math.max(0, prev - 1000));
-    }, 1000);
+    const fetchArtwork = async () => {
+      try {
+        const res = await fetch(`http://localhost:5000/api/artworks/${id}`);
+        const data = await res.json();
 
-    return () => clearInterval(timer);
-  }, []);
+        if (data.success) {
+          const artworkData = data.artwork;
+          const now = new Date();
+          const auctionStart = new Date(artworkData.auctionDate);
+          const auctionEnd = new Date(artworkData.auctionEndDate);
+
+          const isAuctionLive = now >= auctionStart && now <= auctionEnd;
+          const isAuctionEnded = now > auctionEnd;
+
+          setArtwork({
+            id: artworkData._id,
+            title: artworkData.title,
+            description: artworkData.description,
+            imageUrl: `http://localhost:5000${artworkData.imageUrl}`,
+            basePrice: artworkData.basePrice,
+            artistName: artworkData.artist?.name || 'Unknown Artist',
+            status: isAuctionEnded ? 'ended' : isAuctionLive ? 'live' : 'scheduled',
+            auctionDate: artworkData.auctionDate,
+            auctionEndDate: artworkData.auctionEndDate,
+          });
+          setCurrentBid(artworkData.currentBid || artworkData.basePrice);
+          setIsLive(isAuctionLive && !isAuctionEnded);
+        } else {
+          toast({ title: "Error", description: "Artwork not found", variant: "destructive" });
+          navigate('/auctions/live');
+        }
+      } catch (error) {
+        console.error('Error fetching artwork:', error);
+        toast({ title: "Error", description: "Failed to load artwork", variant: "destructive" });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchArtwork();
+    }
+  }, [id, navigate, toast]);
+
+  useEffect(() => {
+    if (artwork?.auctionEndDate) {
+      const auctionEndTime = new Date(artwork.auctionEndDate).getTime();
+      const now = Date.now();
+      const initialTimeRemaining = Math.max(0, auctionEndTime - now);
+      setTimeRemaining(initialTimeRemaining);
+
+      const timer = setInterval(() => {
+        setTimeRemaining(prev => Math.max(0, prev - 1000));
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }
+  }, [artwork]);
 
   const formatTime = (ms: number) => {
     const hours = Math.floor(ms / (1000 * 60 * 60));
@@ -71,7 +115,7 @@ const LiveAuctionDetails = () => {
     return new Date(timestamp).toLocaleTimeString();
   };
 
-  const handlePlaceBid = () => {
+  const handlePlaceBid = async () => {
     if (!user) {
       navigate('/login');
       return;
@@ -87,20 +131,76 @@ const LiveAuctionDetails = () => {
       return;
     }
 
-    setCurrentBid(bid);
-    setBidAmount('');
-    toast({
-      title: "Bid Placed Successfully!",
-      description: `Your bid of ${formatPrice(bid)} has been placed.`,
-    });
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/bids', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          artworkId: artwork.id,
+          amount: bid,
+        }),
+      });
+
+      if (response.ok) {
+        setCurrentBid(bid);
+        setBidAmount('');
+        toast({
+          title: "Bid Placed Successfully!",
+          description: `Your bid of ${formatPrice(bid)} has been placed.`,
+        });
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Bid Failed",
+          description: errorData.message || "Failed to place bid",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Bid error:', error);
+      toast({
+        title: "Bid Failed",
+        description: "Network error. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const minBidAmount = currentBid + 1000;
 
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center items-center min-h-96">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!artwork) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center py-16">
+          <h3 className="text-2xl font-semibold text-muted-foreground mb-4">
+            Artwork Not Found
+          </h3>
+          <Button onClick={() => navigate('/auctions/live')}>
+            Back to Live Auctions
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
-      <Button 
-        variant="ghost" 
+      <Button
+        variant="ghost"
         onClick={() => navigate('/auctions/live')}
         className="mb-6 flex items-center space-x-2"
       >
@@ -118,8 +218,16 @@ const LiveAuctionDetails = () => {
               className="w-full h-96 object-cover rounded-lg shadow-elegant"
             />
             <div className="absolute top-4 left-4">
-              <Badge className="bg-success text-success-foreground">
-                LIVE AUCTION
+              <Badge className={
+                artwork?.status === 'ended'
+                  ? "bg-muted text-muted-foreground"
+                  : artwork?.status === 'live'
+                  ? "bg-success text-success-foreground"
+                  : "bg-warning text-warning-foreground"
+              }>
+                {artwork?.status === 'ended' ? 'AUCTION ENDED' :
+                 artwork?.status === 'live' ? 'LIVE AUCTION' :
+                 'UPCOMING'}
               </Badge>
             </div>
           </div>
@@ -164,41 +272,54 @@ const LiveAuctionDetails = () => {
 
           {/* Bidding Interface */}
           <div className="bg-card rounded-lg p-6 border shadow-card">
-            {user ? (
-              <div className="space-y-4">
-                <h3 className="font-semibold text-foreground flex items-center space-x-2">
-                  <Gavel className="h-4 w-4" />
-                  <span>Place Your Bid</span>
-                </h3>
-                <div className="space-y-3">
-                  <Input
-                    type="number"
-                    placeholder={`Minimum: ${formatPrice(minBidAmount)}`}
-                    value={bidAmount}
-                    onChange={(e) => setBidAmount(e.target.value)}
-                    min={minBidAmount}
-                  />
-                  <Button 
-                    onClick={handlePlaceBid}
-                    className="w-full bg-gradient-auction text-white hover:shadow-glow"
-                    disabled={!bidAmount || parseInt(bidAmount) <= currentBid}
+            {isLive ? (
+              user ? (
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-foreground flex items-center space-x-2">
+                    <Gavel className="h-4 w-4" />
+                    <span>Place Your Bid</span>
+                  </h3>
+                  <div className="space-y-3">
+                    <Input
+                      type="number"
+                      placeholder={`Minimum: ${formatPrice(minBidAmount)}`}
+                      value={bidAmount}
+                      onChange={(e) => setBidAmount(e.target.value)}
+                      min={minBidAmount}
+                    />
+                    <Button
+                      onClick={handlePlaceBid}
+                      className="w-full bg-gradient-auction text-white hover:shadow-glow"
+                      disabled={!bidAmount || parseInt(bidAmount) <= currentBid}
+                    >
+                      Place Bid
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center space-y-4">
+                  <h3 className="font-semibold text-foreground">Login to Bid</h3>
+                  <p className="text-muted-foreground">
+                    You need to be logged in to participate in this auction
+                  </p>
+                  <Button
+                    onClick={() => navigate('/login')}
+                    className="w-full"
                   >
-                    Place Bid
+                    Login to Bid
                   </Button>
                 </div>
-              </div>
+              )
             ) : (
               <div className="text-center space-y-4">
-                <h3 className="font-semibold text-foreground">Login to Bid</h3>
+                <h3 className="font-semibold text-foreground">
+                  {artwork?.status === 'ended' ? 'Auction Ended' : 'Auction Not Live'}
+                </h3>
                 <p className="text-muted-foreground">
-                  You need to be logged in to participate in this auction
+                  {artwork?.status === 'ended'
+                    ? 'This auction has ended. Check back for future auctions.'
+                    : 'This auction is not currently live. You can view details but cannot place bids.'}
                 </p>
-                <Button 
-                  onClick={() => navigate('/login')}
-                  className="w-full"
-                >
-                  Login to Bid
-                </Button>
               </div>
             )}
           </div>

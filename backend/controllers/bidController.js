@@ -1,6 +1,6 @@
 // controllers/bidController.js
 import Bid from "../models/Bid.js";
-import Auction from "../models/Auction.js";
+import Artwork from "../models/Artwork.js";
 
 /**
  * @desc   Get all bids of logged-in user
@@ -12,36 +12,65 @@ export const getMyBids = async (req, res) => {
     const userId = req.user.id;
 
     const bids = await Bid.find({ bidder: userId })
-      .populate("auction", "title imageUrl status currentPrice endTime winningBidder winningAmount")
+      .populate({
+        path: "artwork",
+        select: "title imageUrl status currentBid auctionEndDate winningBidder",
+        populate: { path: "artist", select: "name" }
+      })
       .sort({ createdAt: -1 });
 
-    const formatted = bids.map((bid) => {
-      const auction = bid.auction;
-      let result = "lost";
+    // Group bids by artwork to handle multiple bids per artwork
+    const bidsByArtwork = new Map();
 
-      if (auction.status === "live") {
-        result =
-          auction.winningBidder?.toString() === userId ? "winning" : "outbid";
-      } else if (auction.status === "ended") {
-        result =
-          auction.winningBidder?.toString() === userId ? "won" : "lost";
+    bids.forEach((bid) => {
+      const artworkId = bid.artwork._id.toString();
+      if (!bidsByArtwork.has(artworkId)) {
+        bidsByArtwork.set(artworkId, []);
       }
-
-      return {
-        id: bid._id,
-        artwork: {
-          title: auction.title,
-          image: auction.imageUrl,
-        },
-        myHighestBid: bid.amount,
-        currentPrice: auction.currentPrice,
-        status: auction.status,
-        result,
-        bidTime: bid.createdAt,
-        auctionEndTime: auction.endTime,
-        finalPrice: auction.status === "ended" ? auction.winningAmount : null,
-      };
+      bidsByArtwork.get(artworkId).push(bid);
     });
+
+    const formatted = [];
+
+    for (const [artworkId, artworkBids] of bidsByArtwork) {
+      const artwork = artworkBids[0].artwork; // All bids have the same artwork data
+
+      // Sort bids by amount (highest first) for this artwork
+      artworkBids.sort((a, b) => b.amount - a.amount);
+
+      artworkBids.forEach((bid, index) => {
+        let result = "lost";
+
+        if (artwork.status === "live") {
+          result = artwork.winningBidder?.toString() === userId ? "winning" : "outbid";
+        } else if (artwork.status === "ended" || artwork.status === "sold") {
+          // For ended auctions, only the highest bid from the winner should be "won"
+          if (artwork.winningBidder?.toString() === userId) {
+            result = index === 0 ? "won" : "lost"; // Only highest bid is "won"
+          } else {
+            result = "lost";
+          }
+        }
+
+        formatted.push({
+          id: bid._id,
+          artwork: {
+            title: artwork.title,
+            image: artwork.imageUrl,
+          },
+          myHighestBid: bid.amount,
+          currentPrice: artwork.currentBid,
+          status: artwork.status,
+          result,
+          bidTime: bid.createdAt,
+          auctionEndTime: artwork.auctionEndDate,
+          finalPrice: (artwork.status === "ended" || artwork.status === "sold") ? artwork.currentBid : null,
+        });
+      });
+    }
+
+    // Sort by bid time (most recent first)
+    formatted.sort((a, b) => new Date(b.bidTime) - new Date(a.bidTime));
 
     res.json(formatted);
   } catch (error) {
@@ -57,35 +86,33 @@ export const getMyBids = async (req, res) => {
  */
 export const placeBid = async (req, res) => {
   try {
-    const { auctionId, amount } = req.body;
+    const { artworkId, amount } = req.body;
     const userId = req.user.id;
 
-    const auction = await Auction.findById(auctionId);
-    if (!auction) return res.status(404).json({ message: "Auction not found" });
+    const artwork = await Artwork.findById(artworkId);
+    if (!artwork) return res.status(404).json({ message: "Artwork not found" });
 
-    if (auction.status !== "live") {
+    const now = new Date();
+    if (now < artwork.auctionDate || now > artwork.auctionEndDate) {
       return res.status(400).json({ message: "Auction is not live" });
     }
 
-    if (amount <= auction.currentPrice) {
-      return res
-        .status(400)
-        .json({ message: "Bid must be higher than current price" });
+    if (amount <= artwork.currentBid) {
+      return res.status(400).json({ message: "Bid must be higher than current price" });
     }
 
     // Save new bid
     const newBid = new Bid({
-      auction: auctionId,
+      artwork: artworkId,
       bidder: userId,
       amount,
     });
     await newBid.save();
 
-    // Update auction
-    auction.currentPrice = amount;
-    auction.winningBidder = userId;
-    auction.winningAmount = amount;
-    await auction.save();
+    // Update artwork
+    artwork.currentBid = amount;
+    artwork.winningBidder = userId;
+    await artwork.save();
 
     res.status(201).json({ message: "Bid placed successfully", bid: newBid });
   } catch (error) {

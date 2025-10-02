@@ -25,7 +25,9 @@ const ArtworkCard: React.FC<ArtworkCardProps> = ({ artwork, showBidButton = true
       case 'live':
         return 'bg-success text-success-foreground';
       case 'upcoming':
+      case 'scheduled':
         return 'bg-warning text-warning-foreground';
+      case 'ended':
       case 'sold':
         return 'bg-muted text-muted-foreground';
       default:
@@ -60,10 +62,12 @@ const ArtworkCard: React.FC<ArtworkCardProps> = ({ artwork, showBidButton = true
           className="w-full h-64 object-cover transition-transform duration-300 group-hover:scale-110"
         />
         <div className="absolute top-4 left-4">
-          <Badge className={getStatusColor(artwork.status)}>
-            {artwork.status.toUpperCase()}
-          </Badge>
-        </div>
+           <Badge className={getStatusColor(artwork.status)}>
+             {artwork.status === 'scheduled' ? 'UPCOMING' :
+              artwork.status === 'ended' ? 'ENDED' :
+              artwork.status.toUpperCase()}
+           </Badge>
+         </div>
         {artwork.status === 'live' && (
           <div className="absolute top-4 right-4 bg-background/90 backdrop-blur-sm rounded-lg px-2 py-1">
             <div className="flex items-center space-x-1 text-xs text-foreground">
@@ -99,26 +103,15 @@ const ArtworkCard: React.FC<ArtworkCardProps> = ({ artwork, showBidButton = true
                 {formatPrice(artwork.currentBid)}
               </div>
             </div>
-            
-            {showBidButton && artwork.status === 'live' && (
-              <Link to={`/auction/${artwork.id}`}>
-                <Button variant="auction" size="sm" className="flex items-center space-x-1">
-                  <Gavel className="h-3 w-3" />
-                  <span>Bid Now</span>
-                </Button>
-              </Link>
-            )}
-          </div>
-          
-          {artwork.status === 'upcoming' && (
+
             <div className="text-center">
-              <Link to={`/auction/${artwork.id}`}>
+              <Link to={artwork.status === 'live' ? `/auctions/live/${artwork.id}` : `/auctions/upcoming/${artwork.id}`}>
                 <Button variant="outline" size="sm" className="w-full">
                   View Details
                 </Button>
               </Link>
             </div>
-          )}
+          </div>
         </div>
       </CardContent>
     </Card>

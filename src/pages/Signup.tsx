@@ -69,14 +69,10 @@ const Signup = () => {
       if (success) {
         toast({
           title: "Welcome to Artifex!",
-          description: "Your account has been created successfully.",
+          description: "Your account has been created successfully. Please login to continue.",
         });
 
-        if (role === "artist") {
-          navigate("/dashboard/artist");
-        } else {
-          navigate("/dashboard/user");
-        }
+        navigate("/login");
       }
 
     } catch (error) {

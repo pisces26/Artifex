@@ -17,6 +17,7 @@ import UpcomingAuctionDetails from "./pages/auctions/UpcomingAuctionDetails";
 import ArtistDashboard from "./pages/dashboard/ArtistDashboard";
 import UserDashboard from "./pages/dashboard/UserDashboard";
 import UserProfile from "./pages/dashboard/UserProfile";
+import ArtistArtworkDetails from "./pages/dashboard/ArtistArtworkDetails";
 
 
 const queryClient = new QueryClient();
@@ -65,6 +66,13 @@ const App = () => (
             <Layout>
               <ProtectedRoute requireAuth={true} requiredRole="artist">
                 <UserProfile />
+              </ProtectedRoute>
+            </Layout>
+          } />
+          <Route path="/dashboard/artist/artwork/:id" element={
+            <Layout>
+              <ProtectedRoute requireAuth={true} requiredRole="artist">
+                <ArtistArtworkDetails />
               </ProtectedRoute>
             </Layout>
           } />

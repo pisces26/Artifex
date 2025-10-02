@@ -2,9 +2,9 @@ import mongoose from "mongoose";
 
 const bidSchema = new mongoose.Schema(
   {
-    auction: {
+    artwork: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Auction",
+      ref: "Artwork",
       required: true,
     },
     bidder: {

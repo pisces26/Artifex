@@ -9,29 +9,62 @@ const UpcomingAuctionDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
-  const [timeToStart, setTimeToStart] = useState(24 * 60 * 60 * 1000); // 24 hours in ms
-  const [isReminded, setIsReminded] = useState(false);
 
-  // Mock artwork data
-  const artwork = {
-    id: '4',
-    title: 'Mystic Landscapes',
-    description: 'Oil painting capturing the mystical beauty of mountain ranges. This masterpiece showcases the artist\'s exceptional ability to blend traditional techniques with contemporary vision. The painting features dramatic lighting effects and rich textures that bring the landscape to life. Each brushstroke tells a story of nature\'s grandeur and the artist\'s deep connection with the natural world.',
-    imageUrl: '/src/assets/artwork-1.jpg',
-    basePrice: 20000,
-    artistName: 'Arjun Kumar',
-    status: 'upcoming',
-    auctionStartDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-  };
+  const [artwork, setArtwork] = useState<any>(null);
+  const [timeToStart, setTimeToStart] = useState(0);
+  const [isReminded, setIsReminded] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeToStart(prev => Math.max(0, prev - 1000));
-    }, 1000);
+    const fetchArtwork = async () => {
+      try {
+        const res = await fetch(`http://localhost:5000/api/artworks/${id}`);
+        const data = await res.json();
 
-    return () => clearInterval(timer);
-  }, []);
+        if (data.success) {
+          const artworkData = data.artwork;
+          setArtwork({
+            id: artworkData._id,
+            title: artworkData.title,
+            description: artworkData.description,
+            imageUrl: `http://localhost:5000${artworkData.imageUrl}`,
+            basePrice: artworkData.basePrice,
+            artistName: artworkData.artist?.name || 'Unknown Artist',
+            status: 'upcoming',
+            auctionStartDate: artworkData.auctionDate,
+            category: artworkData.category || 'Uncategorized',
+          });
+        } else {
+          toast({ title: "Error", description: "Artwork not found", variant: "destructive" });
+          navigate('/auctions/upcoming');
+        }
+      } catch (error) {
+        console.error('Error fetching artwork:', error);
+        toast({ title: "Error", description: "Failed to load artwork", variant: "destructive" });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchArtwork();
+    }
+  }, [id, navigate, toast]);
+
+  useEffect(() => {
+    if (artwork?.auctionStartDate) {
+      const auctionStartTime = new Date(artwork.auctionStartDate).getTime();
+      const now = Date.now();
+      const initialTimeToStart = Math.max(0, auctionStartTime - now);
+      setTimeToStart(initialTimeToStart);
+
+      const timer = setInterval(() => {
+        setTimeToStart(prev => Math.max(0, prev - 1000));
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }
+  }, [artwork]);
 
   const formatTime = (ms: number) => {
     const days = Math.floor(ms / (1000 * 60 * 60 * 24));
@@ -72,10 +105,35 @@ const UpcomingAuctionDetails = () => {
     });
   };
 
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center items-center min-h-96">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!artwork) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center py-16">
+          <h3 className="text-2xl font-semibold text-muted-foreground mb-4">
+            Artwork Not Found
+          </h3>
+          <Button onClick={() => navigate('/auctions/upcoming')}>
+            Back to Upcoming Auctions
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
-      <Button 
-        variant="ghost" 
+      <Button
+        variant="ghost"
         onClick={() => navigate('/auctions/upcoming')}
         className="mb-6 flex items-center space-x-2"
       >
@@ -155,7 +213,7 @@ const UpcomingAuctionDetails = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Category:</span>
-                <span className="font-medium text-foreground">Oil Painting</span>
+                <span className="font-medium text-foreground">{artwork.category}</span>
               </div>
             </div>
           </div>

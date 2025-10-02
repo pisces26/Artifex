@@ -66,6 +66,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       setUser(loggedUser);
       localStorage.setItem("user", JSON.stringify(loggedUser));
+      localStorage.setItem("token", result.token);
 
       return true;
     } catch (err) {
@@ -84,18 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (!res.ok) return false;
-      const result = await res.json();
-
-      const newUser: User = {
-        id: result.user?.id ?? "",
-        name: result.user?.name ?? data.name,
-        email: result.user?.email ?? data.email,
-        role: result.user?.role ?? data.role,
-        portfolioLink: result.user?.portfolioLink ?? data.portfolioLink,
-      };
-
-      setUser(newUser);
-      localStorage.setItem("user", JSON.stringify(newUser));
+      await res.json(); // Just consume the response, no user data returned
 
       return true;
     } catch (err) {
@@ -107,6 +97,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = () => {
     setUser(null);
     localStorage.removeItem("user");
+    localStorage.removeItem("token");
   };
 
   return (
