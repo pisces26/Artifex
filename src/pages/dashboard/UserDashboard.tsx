@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 
 const UserDashboard = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [bids, setBids] = useState<any[]>([]);
@@ -80,11 +82,41 @@ const UserDashboard = () => {
       minute: '2-digit'
     });
 
-  const handleCompletePayment = (bidId: string) => {
-    toast({
-      title: "Payment Initiated",
-      description: "Redirecting to payment gateway...",
-    });
+  const handleCompletePayment = async (bid: any) => {
+    if (!bid.paymentId) {
+      // Try to find or create payment for this won bid
+      try {
+        const token = localStorage.getItem('token');
+        // First check if payment exists by fetching bids again
+        const response = await fetch('http://localhost:5000/api/bids/my', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const updatedBid = data.find((b: any) => b.id === bid.id);
+          if (updatedBid && updatedBid.paymentId) {
+            navigate(`/payment?paymentId=${updatedBid.paymentId}&amount=${updatedBid.finalPrice}&artworkTitle=${encodeURIComponent(updatedBid.artwork.title)}`);
+            return;
+          }
+        }
+
+        toast({
+          title: "Payment Pending",
+          description: "Payment request is being processed by the artist. Please try again in a moment.",
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Unable to check payment status",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
+
+    // Redirect to payment gateway with payment details
+    navigate(`/payment?paymentId=${bid.paymentId}&amount=${bid.finalPrice}&artworkTitle=${encodeURIComponent(bid.artwork.title)}`);
   };
 
   const totalBids = bids.length;
@@ -212,7 +244,7 @@ const UserDashboard = () => {
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <img
-                              src={bid.artwork.image}
+                              src={`http://localhost:5000${bid.artwork.image}`}
                               alt={bid.artwork.title}
                               className="w-12 h-12 object-cover rounded"
                             />
@@ -251,7 +283,7 @@ const UserDashboard = () => {
                               <>
                                 <Button
                                   size="sm"
-                                  onClick={() => handleCompletePayment(bid.id)}
+                                  onClick={() => handleCompletePayment(bid)}
                                   className="bg-gradient-primary"
                                 >
                                   <CreditCard className="w-4 h-4 mr-1" />

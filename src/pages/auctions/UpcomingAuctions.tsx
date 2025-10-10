@@ -23,7 +23,8 @@ const UpcomingAuctions = () => {
             currentBid: auction.basePrice, // Default to base price if no bids
             artistName: auction.artist?.name || 'Unknown Artist',
             status: auction.status, // Use actual status from backend
-            auctionEndDate: auction.auctionDate,
+            auctionDate: auction.auctionDate,
+            auctionEndDate: auction.auctionEndDate,
           }));
           setAuctions(transformedAuctions);
         }
@@ -53,16 +54,7 @@ const UpcomingAuctions = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {auctions.map((artwork) => (
-            <div key={artwork.id} className="group">
-              <ArtworkCard artwork={artwork} showBidButton={false} />
-              <div className="mt-4">
-                <Link to={`/auctions/upcoming/${artwork.id}`}>
-                  <div className="w-full bg-primary text-primary-foreground py-3 px-6 rounded-lg font-semibold text-center hover:bg-primary/90 transition-all duration-300 hover:scale-105">
-                    View Details
-                  </div>
-                </Link>
-              </div>
-            </div>
+            <ArtworkCard key={artwork.id} artwork={artwork} showBidButton={false} />
           ))}
         </div>
       )}

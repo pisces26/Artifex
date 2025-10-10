@@ -1,6 +1,8 @@
 import express from "express";
-import { getMyBids, placeBid } from "../controllers/bidController.js";
+import { getMyBids, placeBid, getPublicBidHistory } from "../controllers/bidController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
+import Artwork from "../models/Artwork.js";
+import Bid from "../models/Bid.js";
 
 const router = express.Router();
 
@@ -36,5 +38,8 @@ router.get("/artwork/:artworkId", authMiddleware(["artist"]), async (req, res) =
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
+
+// Get public bid history for a specific artwork
+router.get("/public/:artworkId", getPublicBidHistory);
 
 export default router;

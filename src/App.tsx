@@ -18,6 +18,7 @@ import ArtistDashboard from "./pages/dashboard/ArtistDashboard";
 import UserDashboard from "./pages/dashboard/UserDashboard";
 import UserProfile from "./pages/dashboard/UserProfile";
 import ArtistArtworkDetails from "./pages/dashboard/ArtistArtworkDetails";
+import PaymentGateway from "./pages/PaymentGateway";
 
 
 const queryClient = new QueryClient();
@@ -73,6 +74,13 @@ const App = () => (
             <Layout>
               <ProtectedRoute requireAuth={true} requiredRole="artist">
                 <ArtistArtworkDetails />
+              </ProtectedRoute>
+            </Layout>
+          } />
+          <Route path="/payment" element={
+            <Layout>
+              <ProtectedRoute requireAuth={true} requiredRole="bidder">
+                <PaymentGateway />
               </ProtectedRoute>
             </Layout>
           } />

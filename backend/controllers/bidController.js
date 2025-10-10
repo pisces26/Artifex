@@ -1,6 +1,7 @@
 // controllers/bidController.js
 import Bid from "../models/Bid.js";
 import Artwork from "../models/Artwork.js";
+import Payment from "../models/Payment.js";
 
 /**
  * @desc   Get all bids of logged-in user
@@ -28,6 +29,27 @@ export const getMyBids = async (req, res) => {
         bidsByArtwork.set(artworkId, []);
       }
       bidsByArtwork.get(artworkId).push(bid);
+    });
+
+    // Get all payments for won bids
+    const wonArtworkIds = [];
+    for (const [artworkId, artworkBids] of bidsByArtwork) {
+      const artwork = artworkBids[0].artwork;
+      if ((artwork.status === "ended" || artwork.status === "sold") &&
+          artwork.winningBidder?.toString() === userId) {
+        wonArtworkIds.push(artworkId);
+      }
+    }
+
+    const payments = await Payment.find({
+      artwork: { $in: wonArtworkIds },
+      bidder: userId,
+      status: { $in: ["pending", "completed"] }
+    });
+
+    const paymentMap = new Map();
+    payments.forEach(payment => {
+      paymentMap.set(payment.artwork.toString(), payment._id);
     });
 
     const formatted = [];
@@ -65,6 +87,7 @@ export const getMyBids = async (req, res) => {
           bidTime: bid.createdAt,
           auctionEndTime: artwork.auctionEndDate,
           finalPrice: (artwork.status === "ended" || artwork.status === "sold") ? artwork.currentBid : null,
+          paymentId: paymentMap.get(artworkId) || null,
         });
       });
     }
@@ -118,5 +141,40 @@ export const placeBid = async (req, res) => {
   } catch (error) {
     console.error("Error in placeBid:", error);
     res.status(500).json({ message: "Server error placing bid" });
+  }
+};
+
+/**
+ * @desc   Get public bid history for a specific artwork
+ * @route  GET /api/bids/public/:artworkId
+ * @access Public
+ */
+export const getPublicBidHistory = async (req, res) => {
+  try {
+    const { artworkId } = req.params;
+
+    // Verify the artwork exists
+    const artwork = await Artwork.findById(artworkId);
+    if (!artwork) {
+      return res.status(404).json({ success: false, message: "Artwork not found" });
+    }
+
+    // Get all bids for this artwork
+    const bids = await Bid.find({ artwork: artworkId })
+      .populate("bidder", "name")
+      .sort({ createdAt: -1 });
+
+    // Show actual bidder names
+    const bidHistory = bids.map((bid) => ({
+      id: bid._id,
+      bidder: bid.bidder ? bid.bidder.name : 'Anonymous',
+      amount: bid.amount,
+      timestamp: bid.createdAt,
+    }));
+
+    res.json({ success: true, bids: bidHistory });
+  } catch (error) {
+    console.error("Error fetching public bid history:", error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };

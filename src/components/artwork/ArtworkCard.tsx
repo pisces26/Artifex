@@ -37,20 +37,45 @@ const ArtworkCard: React.FC<ArtworkCardProps> = ({ artwork, showBidButton = true
 
   const getTimeRemaining = () => {
     const now = new Date();
-    const auctionEnd = new Date(artwork.auctionEndDate);
-    const diff = auctionEnd.getTime() - now.getTime();
-    
-    if (diff <= 0) return 'Ended';
-    
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    
-    if (hours > 24) {
-      const days = Math.floor(hours / 24);
-      return `${days}d ${hours % 24}h`;
+    let targetDate: Date;
+    let isUpcoming = false;
+
+    if (artwork.status === 'live') {
+      targetDate = new Date(artwork.auctionEndDate);
+    } else if (artwork.status === 'upcoming' || artwork.status === 'scheduled') {
+      targetDate = new Date(artwork.auctionDate);
+      isUpcoming = true;
+    } else {
+      return '';
     }
-    
-    return `${hours}h ${minutes}m`;
+
+    if (isUpcoming) {
+      // For upcoming auctions, show the start time instead of countdown
+      return new Date(artwork.auctionDate).toLocaleDateString('en-IN', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    }
+
+    const diff = targetDate.getTime() - now.getTime();
+
+    if (diff <= 0) {
+      return 'Ended';
+    }
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+    if (days > 0) {
+      return `${days}d ${hours}h`;
+    } else if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else {
+      return `${minutes}m`;
+    }
   };
 
   return (
@@ -59,16 +84,28 @@ const ArtworkCard: React.FC<ArtworkCardProps> = ({ artwork, showBidButton = true
         <img
           src={artwork.imageUrl}
           alt={artwork.title}
-          className="w-full h-64 object-cover transition-transform duration-300 group-hover:scale-110"
+          className={`w-full object-cover transition-transform duration-300 group-hover:scale-110 ${
+            artwork.status === 'upcoming' || artwork.status === 'scheduled'
+              ? 'h-32 blur-sm scale-110'
+              : 'h-64'
+          }`}
         />
+        {(artwork.status === 'upcoming' || artwork.status === 'scheduled') && (
+          <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+            <div className="text-white text-center">
+              <div className="text-sm font-medium">Artwork Preview</div>
+              <div className="text-xs opacity-80">Available when auction starts</div>
+            </div>
+          </div>
+        )}
         <div className="absolute top-4 left-4">
            <Badge className={getStatusColor(artwork.status)}>
              {artwork.status === 'scheduled' ? 'UPCOMING' :
-              artwork.status === 'ended' ? 'ENDED' :
+              artwork.status === 'live' ? 'LIVE' :
               artwork.status.toUpperCase()}
            </Badge>
          </div>
-        {artwork.status === 'live' && (
+        {(artwork.status === 'upcoming' || artwork.status === 'scheduled') && (
           <div className="absolute top-4 right-4 bg-background/90 backdrop-blur-sm rounded-lg px-2 py-1">
             <div className="flex items-center space-x-1 text-xs text-foreground">
               <Clock className="h-3 w-3" />

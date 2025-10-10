@@ -27,6 +27,7 @@ const ArtistDashboard = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [artworks, setArtworks] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [activeTab, setActiveTab] = useState("my-artworks");
   const [editingArtwork, setEditingArtwork] = useState<any>(null);
@@ -39,36 +40,42 @@ const ArtistDashboard = () => {
     auctionEndDate: ''
   });
 
-  // Fetch artworks using JWT from localStorage
+  // Fetch artworks and payments using JWT from localStorage
   useEffect(() => {
-    const fetchArtworks = async () => {
+    const fetchData = async () => {
       try {
         const token = localStorage.getItem("token");
         if (!token) return toast({ title: "Unauthorized", description: "Please login", variant: "destructive" });
 
-        const res = await fetch("http://localhost:5000/api/artworks/my-artworks", {
+        // Fetch artworks
+        const artworksRes = await fetch("http://localhost:5000/api/artworks/my-artworks", {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        const artworksData = await res.json();
-        if (artworksData.success) {
-          setArtworks(artworksData.artworks);
-        }
-
-        if (res.status === 401) {
+        if (artworksRes.status === 401) {
           toast({ title: "Unauthorized", description: "Invalid or expired token", variant: "destructive" });
           return;
         }
 
-        const data = await res.json();
-        if (data.success) setArtworks(data.artworks);
-        else toast({ title: "Error", description: data.message, variant: "destructive" });
+        const artworksData = await artworksRes.json();
+        if (artworksData.success) {
+          setArtworks(artworksData.artworks);
+        }
+
+        // Fetch payments
+        const paymentsRes = await fetch("http://localhost:5000/api/payments/artist", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const paymentsData = await paymentsRes.json();
+        if (paymentsData.success) {
+          setPayments(paymentsData.payments);
+        }
       } catch (err) {
         console.error(err);
-        toast({ title: "Error", description: "Failed to fetch artworks", variant: "destructive" });
       }
     };
-    fetchArtworks();
+    fetchData();
   }, []);
 
   const handleEditArtwork = (artwork: any) => {
@@ -404,10 +411,55 @@ const ArtistDashboard = () => {
           <Card>
             <CardHeader>
               <CardTitle>Payment History</CardTitle>
-              <CardDescription>Track your earnings</CardDescription>
+              <CardDescription>Track your earnings from completed auctions</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground">Coming soon...</p>
+              {payments.length === 0 ? (
+                <p className="text-muted-foreground">No payments yet</p>
+              ) : (
+                <div className="space-y-4">
+                  {payments.map((payment) => (
+                    <Card key={payment._id} className="p-4">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={`http://localhost:5000${payment.artwork.imageUrl}`}
+                              alt={payment.artwork.title}
+                              className="w-12 h-12 object-cover rounded"
+                            />
+                            <div>
+                              <h4 className="font-medium">{payment.artwork.title}</h4>
+                              <p className="text-sm text-muted-foreground">
+                                Sold to {payment.bidder.name}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {new Date(payment.createdAt).toLocaleDateString('en-IN')}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-primary">
+                            {formatPrice(payment.amount)}
+                          </div>
+                          <Badge
+                            className={
+                              payment.status === 'completed'
+                                ? 'bg-gradient-sold text-white'
+                                : payment.status === 'pending'
+                                ? 'bg-gradient-warning text-white'
+                                : 'bg-secondary text-secondary-foreground'
+                            }
+                          >
+                            {payment.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

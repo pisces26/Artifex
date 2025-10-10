@@ -148,8 +148,14 @@ const UpcomingAuctionDetails = () => {
             <img
               src={artwork.imageUrl}
               alt={artwork.title}
-              className="w-full h-96 object-cover rounded-lg shadow-elegant"
+              className="w-full h-96 object-cover rounded-lg shadow-elegant filter blur-sm"
             />
+            <div className="absolute inset-0 bg-black/20 rounded-lg flex items-center justify-center">
+              <div className="text-center text-white">
+                <div className="text-lg font-semibold mb-2">Artwork Preview</div>
+                <div className="text-sm opacity-90">Full image available when auction starts</div>
+              </div>
+            </div>
             <div className="absolute top-4 left-4">
               <Badge className="bg-warning text-warning-foreground">
                 UPCOMING

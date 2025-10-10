@@ -23,7 +23,8 @@ const LiveAuctions = () => {
             currentBid: auction.basePrice, // Default to base price if no bids
             artistName: auction.artist?.name || 'Unknown Artist',
             status: auction.status, // Use actual status from backend
-            auctionEndDate: auction.auctionDate,
+            auctionDate: auction.auctionDate,
+            auctionEndDate: auction.auctionEndDate,
           }));
           setAuctions(transformedAuctions);
         }
@@ -53,16 +54,7 @@ const LiveAuctions = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {auctions.map((artwork) => (
-            <div key={artwork.id} className="group">
-              <ArtworkCard artwork={artwork} showBidButton={true} />
-              <div className="mt-4">
-                <Link to={`/auctions/live/${artwork.id}`}>
-                  <div className="w-full bg-gradient-auction text-white py-3 px-6 rounded-lg font-semibold text-center hover:shadow-glow transition-all duration-300 hover:scale-105">
-                    Join Auction
-                  </div>
-                </Link>
-              </div>
-            </div>
+            <ArtworkCard key={artwork.id} artwork={artwork} showBidButton={true} />
           ))}
         </div>
       )}

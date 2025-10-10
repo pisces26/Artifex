@@ -6,6 +6,9 @@ export interface User {
   email: string;
   role: "artist" | "bidder";
   portfolioLink?: string;
+  profilePicture?: string;
+  mobile?: string;
+  location?: string;
 }
 
 interface SignupData {
@@ -21,6 +24,7 @@ interface AuthContextType {
   login: (email: string, password: string, role: "artist" | "bidder") => Promise<boolean>;
   signup: (data: SignupData) => Promise<boolean>;
   logout: () => void;
+  updateUser: (updatedUser: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -94,6 +98,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const updateUser = (updatedUser: Partial<User>) => {
+    if (user) {
+      const newUser = { ...user, ...updatedUser };
+      setUser(newUser);
+      localStorage.setItem("user", JSON.stringify(newUser));
+    }
+  };
+
   const logout = () => {
     setUser(null);
     localStorage.removeItem("user");
@@ -101,7 +113,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, login, signup, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

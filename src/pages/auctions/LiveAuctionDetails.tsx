@@ -7,12 +7,6 @@ import {useAuth} from '@/context/AuthContext';
 import { Clock, Gavel, User, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-interface BidHistory {
-  id: string;
-  bidder: string;
-  amount: number;
-  timestamp: string;
-}
 
 const LiveAuctionDetails = () => {
   const { id } = useParams();
@@ -27,13 +21,6 @@ const LiveAuctionDetails = () => {
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // Mock bid history - in a real app, this would come from backend
-  const [bidHistory] = useState<BidHistory[]>([
-    { id: '1', bidder: 'User***23', amount: 22000, timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString() },
-    { id: '2', bidder: 'Art***er', amount: 20000, timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString() },
-    { id: '3', bidder: 'Bid***99', amount: 18000, timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString() },
-    { id: '4', bidder: 'Col***tor', amount: 15000, timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString() },
-  ]);
 
   useEffect(() => {
     const fetchArtwork = async () => {
@@ -111,9 +98,6 @@ const LiveAuctionDetails = () => {
     }).format(price);
   };
 
-  const formatTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString();
-  };
 
   const handlePlaceBid = async () => {
     if (!user) {
@@ -324,28 +308,6 @@ const LiveAuctionDetails = () => {
             )}
           </div>
 
-          {/* Bid History */}
-          <div className="bg-card rounded-lg p-6 border shadow-card">
-            <h3 className="font-semibold text-foreground mb-4">Bid History</h3>
-            <div className="space-y-3 max-h-64 overflow-y-auto">
-              {bidHistory.map((bid) => (
-                <div key={bid.id} className="flex justify-between items-center py-2 border-b border-border last:border-b-0">
-                  <div className="flex items-center space-x-2">
-                    <User className="h-3 w-3 text-muted-foreground" />
-                    <span className="text-sm font-medium">{bid.bidder}</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-semibold text-foreground">
-                      {formatPrice(bid.amount)}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {formatTimestamp(bid.timestamp)}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>

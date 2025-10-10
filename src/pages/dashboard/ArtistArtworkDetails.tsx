@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, User, Clock, IndianRupee, Trophy, Edit } from 'lucide-react';
+import { ArrowLeft, User, Clock, IndianRupee, Trophy, Edit, CheckCircle, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const ArtistArtworkDetails = () => {
@@ -14,55 +14,90 @@ const ArtistArtworkDetails = () => {
   const [artwork, setArtwork] = useState<any>(null);
   const [bids, setBids] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [processingPayment, setProcessingPayment] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<any>(null);
 
-  useEffect(() => {
-    const fetchArtworkDetails = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          toast({ title: "Unauthorized", description: "Please login", variant: "destructive" });
-          return;
+  const fetchArtworkDetails = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast({ title: "Unauthorized", description: "Please login", variant: "destructive" });
+        return;
+      }
+
+      // Fetch artwork details
+      const artworkRes = await fetch(`http://localhost:5000/api/artworks/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (artworkRes.status === 401) {
+        toast({ title: "Unauthorized", description: "Invalid or expired token", variant: "destructive" });
+        return;
+      }
+
+      const artworkData = await artworkRes.json();
+      if (artworkData.success) {
+        setArtwork(artworkData.artwork);
+      }
+
+      // Fetch all bids for this artwork
+      const bidsRes = await fetch(`http://localhost:5000/api/bids/artwork/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (bidsRes.ok) {
+        const bidsData = await bidsRes.json();
+        if (bidsData.success) {
+          setBids(bidsData.bids);
         }
+      }
 
-        // Fetch artwork details
-        const artworkRes = await fetch(`http://localhost:5000/api/artworks/${id}`, {
+      // Fetch payment status for ended auctions
+      if (artworkData.success && artworkData.artwork.winningBidder) {
+        const paymentsRes = await fetch(`http://localhost:5000/api/payments/artist`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        if (artworkRes.status === 401) {
-          toast({ title: "Unauthorized", description: "Invalid or expired token", variant: "destructive" });
-          return;
-        }
-
-        const artworkData = await artworkRes.json();
-        if (artworkData.success) {
-          setArtwork(artworkData.artwork);
-        }
-
-        // Fetch all bids for this artwork
-        const bidsRes = await fetch(`http://localhost:5000/api/bids/artwork/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (bidsRes.ok) {
-          const bidsData = await bidsRes.json();
-          if (bidsData.success) {
-            setBids(bidsData.bids);
+        if (paymentsRes.ok) {
+          const paymentsData = await paymentsRes.json();
+          if (paymentsData.success) {
+            // Find all payments for this artwork and get the most recent one
+            const artworkPayments = paymentsData.payments.filter((p: any) => p.artwork._id === id);
+            if (artworkPayments.length > 0) {
+              // Sort by creation date (most recent first) and get the latest
+              const latestPayment = artworkPayments.sort((a: any, b: any) =>
+                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              )[0];
+              setPaymentStatus(latestPayment);
+            } else {
+              setPaymentStatus(null);
+            }
           }
         }
-
-      } catch (error) {
-        console.error('Error fetching artwork details:', error);
-        toast({ title: "Error", description: "Failed to load artwork details", variant: "destructive" });
-      } finally {
-        setLoading(false);
       }
-    };
 
+    } catch (error) {
+      console.error('Error fetching artwork details:', error);
+      toast({ title: "Error", description: "Failed to load artwork details", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (id) {
       fetchArtworkDetails();
+
+      // Set up live refresh for active auctions
+      const interval = setInterval(() => {
+        if (artwork && (artwork.status === 'live' || artwork.status === 'scheduled')) {
+          fetchArtworkDetails();
+        }
+      }, 10000); // Refresh every 10 seconds for live data
+
+      return () => clearInterval(interval);
     }
-  }, [id, toast]);
+  }, [id, toast, artwork?.status]);
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(price);
@@ -75,6 +110,50 @@ const ArtistArtworkDetails = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+
+  const handleProcessPayment = async (artworkId: string) => {
+    setProcessingPayment(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/payments/process/${artworkId}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: "Payment request sent to bidder successfully",
+        });
+        // Refresh artwork data
+        const artworkRes = await fetch(`http://localhost:5000/api/artworks/${artworkId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const artworkData = await artworkRes.json();
+        if (artworkData.success) {
+          setArtwork(artworkData.artwork);
+        }
+      } else {
+        toast({
+          title: "Error",
+          description: data.message || "Failed to process payment",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error processing payment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to process payment",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -173,7 +252,7 @@ const ArtistArtworkDetails = () => {
         {/* Auction Details & Winner Info */}
         <div className="space-y-6">
           {/* Winner Information */}
-          {artwork.status === 'ended' && artwork.winningBidder && (
+          {artwork.winningBidder && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
@@ -181,7 +260,10 @@ const ArtistArtworkDetails = () => {
                   <span>Auction Winner</span>
                 </CardTitle>
                 <CardDescription>
-                  Congratulations to the winning bidder!
+                  {paymentStatus?.status === 'rejected'
+                    ? 'Auction reassigned to next highest bidder'
+                    : 'Congratulations to the winning bidder!'
+                  }
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -200,10 +282,59 @@ const ArtistArtworkDetails = () => {
                     </span>
                   </div>
                 </div>
-                <Button className="w-full" variant="outline">
-                  <IndianRupee className="w-4 h-4 mr-2" />
-                  Process Payment
-                </Button>
+
+                {paymentStatus ? (
+                  paymentStatus.status === 'completed' ? (
+                    <div className="bg-green-50 border border-green-200 p-3 rounded-lg">
+                      <div className="flex items-center space-x-2 text-green-700">
+                        <CheckCircle className="h-4 w-4" />
+                        <span className="text-sm font-medium">Payment Received</span>
+                      </div>
+                      <p className="text-xs text-green-600 mt-1">
+                        Amount: {formatPrice(paymentStatus.amount)} • Method: {paymentStatus.paymentMethod}
+                      </p>
+                    </div>
+                  ) : paymentStatus.status === 'rejected' ? (
+                    <div className="bg-red-50 border border-red-200 p-3 rounded-lg">
+                      <div className="flex items-center space-x-2 text-red-700">
+                        <X className="h-4 w-4" />
+                        <span className="text-sm font-medium">Payment Rejected</span>
+                      </div>
+                      <p className="text-xs text-red-600 mt-1">
+                        Previous bidder rejected payment. Auction reassigned to next highest bidder.
+                      </p>
+                      <Button
+                        className="w-full mt-3"
+                        variant="outline"
+                        onClick={() => handleProcessPayment(artwork._id)}
+                        disabled={processingPayment}
+                      >
+                        <IndianRupee className="w-4 h-4 mr-2" />
+                        {processingPayment ? 'Processing...' : 'Process Payment for New Winner'}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
+                      <div className="flex items-center space-x-2 text-yellow-700">
+                        <Clock className="h-4 w-4" />
+                        <span className="text-sm font-medium">Payment Pending</span>
+                      </div>
+                      <p className="text-xs text-yellow-600 mt-1">
+                        Waiting for bidder to complete payment
+                      </p>
+                    </div>
+                  )
+                ) : (
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    onClick={() => handleProcessPayment(artwork._id)}
+                    disabled={processingPayment}
+                  >
+                    <IndianRupee className="w-4 h-4 mr-2" />
+                    {processingPayment ? 'Processing...' : 'Process Payment'}
+                  </Button>
+                )}
               </CardContent>
             </Card>
           )}
