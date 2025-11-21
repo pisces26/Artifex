@@ -1,17 +1,19 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/context/AuthContext';
-import { 
-  Palette, 
-  User, 
-  LogOut, 
-  Gavel, 
-  Home, 
+import {
+  Palette,
+  User,
+  LogOut,
+  Gavel,
+  Home,
   Upload,
   Wallet,
   Activity,
-  Clock
+  Clock,
+  BarChart3
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -76,7 +78,7 @@ const Navbar = () => {
                   <span>Upcoming</span>
                 </Link>
                 <Link to="/dashboard/artist" className="flex items-center space-x-1 text-foreground hover:text-primary transition-colors">
-                  <Home className="h-4 w-4" />
+                  <BarChart3 className="h-4 w-4" />
                   <span>Dashboard</span>
                 </Link>
               </>
@@ -95,8 +97,8 @@ const Navbar = () => {
                   <span>Upcoming</span>
                 </Link>
                 <Link to="/dashboard/user" className="flex items-center space-x-1 text-foreground hover:text-primary transition-colors">
-                  <Activity className="h-4 w-4" />
-                  <span>My Bids</span>
+                  <BarChart3 className="h-4 w-4" />
+                  <span>Dashboard</span>
                 </Link>
               </>
             )}
@@ -104,7 +106,12 @@ const Navbar = () => {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-                <User className="h-4 w-4" />
+                <Avatar className="h-8 w-8">
+                  <AvatarImage
+                    src={user.profilePicture ? `http://localhost:5000${user.profilePicture}` : undefined}
+                  />
+                  <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
+                </Avatar>
                 <span>{user.name}</span>
               </Button>
             </DropdownMenuTrigger>

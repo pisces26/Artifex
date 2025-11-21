@@ -4,6 +4,9 @@ import cors from "cors";
 import dotenv from "dotenv";
 import authRoutes from "./routes/authRoutes.js";
 import artworkRoutes from "./routes/artworkRoutes.js";
+import bidRoutes from "./routes/bidRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
+import billRoutes from "./routes/billRoutes.js";
 
 dotenv.config();
 
@@ -22,6 +25,9 @@ app.use("/uploads", express.static("uploads"));
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/artworks", artworkRoutes);
+app.use("/api/bids", bidRoutes);
+app.use("/api/payments", paymentRoutes);
+app.use("/api/bills", billRoutes);
 
 // MongoDB connection
 mongoose.connect(process.env.MONGO_URI, {

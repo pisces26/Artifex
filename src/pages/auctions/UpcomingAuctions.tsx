@@ -1,46 +1,42 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import ArtworkCard from '@/components/artwork/ArtworkCard';
 import { Artwork } from '@/types';
 
-// Mock data for upcoming auctions
-const mockUpcomingAuctions: Artwork[] = [
-  {
-    id: '4',
-    title: 'Mystic Landscapes',
-    description: 'Oil painting capturing the mystical beauty of mountain ranges',
-    imageUrl: '/src/assets/artwork-1.jpg',
-    basePrice: 20000,
-    currentBid: 20000,
-    artistName: 'Arjun Kumar',
-    status: 'upcoming',
-    auctionEndDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 1 day from now
-  },
-  {
-    id: '5',
-    title: 'Digital Renaissance',
-    description: 'Modern digital art blending classical techniques with contemporary themes',
-    imageUrl: '/src/assets/artwork-2.jpg',
-    basePrice: 12000,
-    currentBid: 12000,
-    artistName: 'Sofia Iyer',
-    status: 'upcoming',
-    auctionEndDate: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(), // 2 days from now
-  },
-  {
-    id: '6',
-    title: 'Cultural Mosaic',
-    description: 'Mixed media artwork celebrating Indian cultural diversity',
-    imageUrl: '/src/assets/artwork-3.jpg',
-    basePrice: 30000,
-    currentBid: 30000,
-    artistName: 'Vikram Singh',
-    status: 'upcoming',
-    auctionEndDate: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(), // 3 days from now
-  },
-];
-
 const UpcomingAuctions = () => {
+  const [auctions, setAuctions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUpcomingAuctions = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/artworks/upcoming');
+        const data = await res.json();
+        if (data.success) {
+          // Transform backend data to match Artwork interface
+          const transformedAuctions = data.auctions.map((auction: any) => ({
+            id: auction._id,
+            title: auction.title,
+            description: auction.description,
+            imageUrl: `http://localhost:5000${auction.imageUrl}`,
+            basePrice: auction.basePrice,
+            currentBid: auction.basePrice, // Default to base price if no bids
+            artistName: auction.artist?.name || 'Unknown Artist',
+            status: auction.status, // Use actual status from backend
+            auctionDate: auction.auctionDate,
+            auctionEndDate: auction.auctionEndDate,
+          }));
+          setAuctions(transformedAuctions);
+        }
+      } catch (error) {
+        console.error('Error fetching upcoming auctions:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUpcomingAuctions();
+  }, []);
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
@@ -50,22 +46,20 @@ const UpcomingAuctions = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {mockUpcomingAuctions.map((artwork) => (
-          <div key={artwork.id} className="group">
-            <ArtworkCard artwork={artwork} showBidButton={false} />
-            <div className="mt-4">
-              <Link to={`/auctions/upcoming/${artwork.id}`}>
-                <div className="w-full bg-primary text-primary-foreground py-3 px-6 rounded-lg font-semibold text-center hover:bg-primary/90 transition-all duration-300 hover:scale-105">
-                  View Details
-                </div>
-              </Link>
-            </div>
-          </div>
-        ))}
-      </div>
+      {loading ? (
+        <div className="text-center py-16">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground mt-4">Loading upcoming auctions...</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {auctions.map((artwork) => (
+            <ArtworkCard key={artwork.id} artwork={artwork} showBidButton={false} />
+          ))}
+        </div>
+      )}
 
-      {mockUpcomingAuctions.length === 0 && (
+      {!loading && auctions.length === 0 && (
         <div className="text-center py-16">
           <h3 className="text-2xl font-semibold text-muted-foreground mb-4">
             No Upcoming Auctions Scheduled

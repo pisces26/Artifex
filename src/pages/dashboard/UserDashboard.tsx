@@ -1,51 +1,67 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Filter, Download, CreditCard, Clock, Trophy, TrendingUp } from 'lucide-react';
+import { Search, Filter, Download, CreditCard, Clock, Trophy, TrendingUp, Loader2, Package } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 
 const UserDashboard = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [bids, setBids] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [deliveryDialogOpen, setDeliveryDialogOpen] = useState(false);
+  const [selectedBid, setSelectedBid] = useState<any>(null);
+  const [deliveryAddress, setDeliveryAddress] = useState({
+    street: '',
+    city: '',
+    state: '',
+    pincode: '',
+    country: 'India'
+  });
 
-  // Mock data
-  const bids = [
-    {
-      id: '1',
-      artwork: { title: 'Abstract Harmony', image: '/src/assets/artwork-1.jpg' },
-      myHighestBid: 32000,
-      currentPrice: 35000,
-      status: 'live',
-      result: 'outbid',
-      bidTime: '2024-02-15T10:30:00',
-      auctionEndTime: '2024-02-15T18:00:00'
-    },
-    {
-      id: '2',
-      artwork: { title: 'Digital Dreams', image: '/src/assets/artwork-2.jpg' },
-      myHighestBid: 28000,
-      currentPrice: 28000,
-      status: 'ended',
-      result: 'won',
-      bidTime: '2024-02-10T16:45:00',
-      finalPrice: 28000
-    },
-    {
-      id: '3',
-      artwork: { title: "Nature's Canvas", image: '/src/assets/artwork-3.jpg' },
-      myHighestBid: 22000,
-      currentPrice: 25000,
-      status: 'ended',
-      result: 'lost',
-      bidTime: '2024-02-08T14:20:00',
-      finalPrice: 25000
-    }
-  ];
+  // Fetch user's bids
+  useEffect(() => {
+    const fetchBids = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          toast({ title: "Unauthorized", description: "Please login", variant: "destructive" });
+          return;
+        }
+
+        const response = await fetch('http://localhost:5000/api/bids/my', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (response.status === 401) {
+          toast({ title: "Unauthorized", description: "Invalid or expired token", variant: "destructive" });
+          return;
+        }
+
+        const data = await response.json();
+        if (data) {
+          setBids(data);
+        }
+      } catch (error) {
+        console.error('Error fetching bids:', error);
+        toast({ title: "Error", description: "Failed to load bidding history", variant: "destructive" });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBids();
+  }, [toast]);
 
   const getResultColor = (result: string) => {
     switch (result) {
@@ -78,16 +94,101 @@ const UserDashboard = () => {
       minute: '2-digit'
     });
 
-  const handleCompletePayment = (bidId: string) => {
-    toast({
-      title: "Payment Initiated",
-      description: "Redirecting to payment gateway...",
-    });
+  const handleCompletePayment = async (bid: any) => {
+    if (!bid.paymentId) {
+      // Try to find or create payment for this won bid
+      try {
+        const token = localStorage.getItem('token');
+        // First check if payment exists by fetching bids again
+        const response = await fetch('http://localhost:5000/api/bids/my', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const updatedBid = data.find((b: any) => b.id === bid.id);
+          if (updatedBid && updatedBid.paymentId) {
+            navigate(`/payment?paymentId=${updatedBid.paymentId}&amount=${updatedBid.finalPrice}&artworkTitle=${encodeURIComponent(updatedBid.artwork.title)}`);
+            return;
+          }
+        }
+
+        toast({
+          title: "Payment Pending",
+          description: "Payment request is being processed by the artist. Please try again in a moment.",
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Unable to check payment status",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
+
+    // Redirect to payment gateway with payment details
+    navigate(`/payment?paymentId=${bid.paymentId}&amount=${bid.finalPrice}&artworkTitle=${encodeURIComponent(bid.artwork.title)}`);
+  };
+
+  const handleDeliveryAddress = (bid: any) => {
+    setSelectedBid(bid);
+    setDeliveryDialogOpen(true);
+  };
+
+  const handleSaveDeliveryAddress = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/auth/delivery-address', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(deliveryAddress),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Delivery address saved successfully",
+        });
+        setDeliveryDialogOpen(false);
+        setSelectedBid(null);
+        // Reset form
+        setDeliveryAddress({
+          street: '',
+          city: '',
+          state: '',
+          pincode: '',
+          country: 'India'
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to save delivery address",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Network error",
+        variant: "destructive",
+      });
+    }
   };
 
   const totalBids = bids.length;
   const wonBids = bids.filter(bid => bid.result === 'won').length;
   const activeBids = bids.filter(bid => bid.status === 'live').length;
+
+  // Filter bids based on search and status
+  const filteredBids = bids.filter(bid => {
+    const matchesSearch = bid.artwork.title.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || bid.result === statusFilter || bid.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -171,87 +272,204 @@ const UserDashboard = () => {
             </Select>
           </div>
 
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Artwork</TableHead>
-                  <TableHead>My Highest Bid</TableHead>
-                  <TableHead>Current/Final Price</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Result</TableHead>
-                  <TableHead>Bid Time</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {bids.map((bid) => (
-                  <TableRow key={bid.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={bid.artwork.image}
-                          alt={bid.artwork.title}
-                          className="w-12 h-12 object-cover rounded"
-                        />
-                        <div>
-                          <p className="font-medium">{bid.artwork.title}</p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {formatPrice(bid.myHighestBid)}
-                    </TableCell>
-                    <TableCell>{formatPrice(bid.currentPrice)}</TableCell>
-                    <TableCell>
-                      <Badge className={getStatusColor(bid.status)}>
-                        {bid.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getResultColor(bid.result)}>
-                        {bid.result}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatDateTime(bid.bidTime)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        {bid.result === 'won' && (
-                          <>
-                            <Button
-                              size="sm"
-                              onClick={() => handleCompletePayment(bid.id)}
-                              className="bg-gradient-primary"
-                            >
-                              <CreditCard className="w-4 h-4 mr-1" />
-                              Pay Now
-                            </Button>
-                            <Button size="sm" variant="outline">
-                              <Download className="w-4 h-4" />
-                            </Button>
-                          </>
-                        )}
-                        {bid.result === 'outbid' && bid.status === 'live' && (
-                          <Button size="sm" variant="outline">
-                            Place New Bid
-                          </Button>
-                        )}
-                        {bid.status === 'upcoming' && (
-                          <Button size="sm" variant="outline" disabled>
-                            Remind Me
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
+          {loading ? (
+            <div className="flex justify-center items-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin" />
+              <span className="ml-2">Loading bidding history...</span>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Artwork</TableHead>
+                    <TableHead>My Highest Bid</TableHead>
+                    <TableHead>Current/Final Price</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Result</TableHead>
+                    <TableHead>Bid Time</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {filteredBids.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        No bids found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredBids.map((bid) => (
+                      <TableRow key={bid.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={`http://localhost:5000${bid.artwork.image}`}
+                              alt={bid.artwork.title}
+                              className="w-12 h-12 object-cover rounded"
+                            />
+                            <div>
+                              <p className="font-medium">{bid.artwork.title}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {formatPrice(bid.myHighestBid)}
+                        </TableCell>
+                        <TableCell>
+                          {formatPrice(bid.currentPrice)}
+                          {bid.finalPrice && bid.finalPrice !== bid.currentPrice && (
+                            <div className="text-xs text-muted-foreground">
+                              Final: {formatPrice(bid.finalPrice)}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getStatusColor(bid.status)}>
+                            {bid.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getResultColor(bid.result)}>
+                            {bid.result}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatDateTime(bid.bidTime)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            {bid.result === 'won' && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleCompletePayment(bid)}
+                                  className="bg-gradient-primary"
+                                >
+                                  <CreditCard className="w-4 h-4 mr-1" />
+                                  Pay Now
+                                </Button>
+                                {bid.artwork.isDigital && bid.paymentId && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      const link = document.createElement('a');
+                                      link.href = `http://localhost:5000${bid.artwork.image}`;
+                                      link.download = `${bid.artwork.title}.jpg`;
+                                      document.body.appendChild(link);
+                                      link.click();
+                                      document.body.removeChild(link);
+                                    }}
+                                  >
+                                    <Download className="w-4 h-4 mr-1" />
+                                    Download
+                                  </Button>
+                                )}
+                                {!bid.artwork.isDigital && bid.result === 'won' && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleDeliveryAddress(bid)}
+                                  >
+                                    <Package className="w-4 h-4 mr-1" />
+                                    Delivery Address
+                                  </Button>
+                                )}
+                                {bid.paymentId && (
+                                  <Button size="sm" variant="outline">
+                                    Bill
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                            {bid.result === 'outbid' && bid.status === 'live' && (
+                              <Button size="sm" variant="outline">
+                                Place New Bid
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Delivery Address Dialog */}
+      <Dialog open={deliveryDialogOpen} onOpenChange={setDeliveryDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delivery Address</DialogTitle>
+            <DialogDescription>
+              Please provide your delivery address for {selectedBid?.artwork.title}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="street">Street Address</Label>
+              <Textarea
+                id="street"
+                placeholder="Enter your street address"
+                value={deliveryAddress.street}
+                onChange={(e) => setDeliveryAddress({...deliveryAddress, street: e.target.value})}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="city">City</Label>
+                <Input
+                  id="city"
+                  placeholder="City"
+                  value={deliveryAddress.city}
+                  onChange={(e) => setDeliveryAddress({...deliveryAddress, city: e.target.value})}
+                />
+              </div>
+              <div>
+                <Label htmlFor="state">State</Label>
+                <Input
+                  id="state"
+                  placeholder="State"
+                  value={deliveryAddress.state}
+                  onChange={(e) => setDeliveryAddress({...deliveryAddress, state: e.target.value})}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="pincode">Pincode</Label>
+                <Input
+                  id="pincode"
+                  placeholder="Pincode"
+                  value={deliveryAddress.pincode}
+                  onChange={(e) => setDeliveryAddress({...deliveryAddress, pincode: e.target.value})}
+                />
+              </div>
+              <div>
+                <Label htmlFor="country">Country</Label>
+                <Input
+                  id="country"
+                  placeholder="Country"
+                  value={deliveryAddress.country}
+                  onChange={(e) => setDeliveryAddress({...deliveryAddress, country: e.target.value})}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setDeliveryDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveDeliveryAddress} className="bg-gradient-primary">
+                Save Address
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

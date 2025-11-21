@@ -20,7 +20,7 @@ export interface Artwork {
   artistName: string;
   auctionDate?: string;
   auctionEndDate: string;
-  status: 'upcoming' | 'live' | 'sold' | 'ended';
+  status: 'scheduled' | 'upcoming' | 'live' | 'sold' | 'ended';
   createdAt?: string;
 }
 

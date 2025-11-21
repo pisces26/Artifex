@@ -23,22 +23,14 @@ const Login = () => {
   e.preventDefault();
   setIsLoading(true);
   try {
-    const res = await fetch("http://localhost:5000/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, role }),
-    });
+    const success = await login(email, password, role);
 
-    const data = await res.json();
-
-    if (res.ok) {
-      localStorage.setItem("token", data.token); // ✅ Save token
+    if (success) {
       toast({ title: "Login successful" });
 
-      if (role === "artist") navigate("/dashboard/artist");
-      else navigate("/dashboard/bidder");
+      navigate("/");
     } else {
-      toast({ title: "Login failed", description: data.message, variant: "destructive" });
+      toast({ title: "Login failed", description: "Invalid credentials", variant: "destructive" });
     }
   } finally {
     setIsLoading(false);
