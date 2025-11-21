@@ -2,6 +2,7 @@ import express from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import multer from "multer";
+import mongoose from "mongoose";
 import User from "../models/User.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 
@@ -16,20 +17,42 @@ const upload = multer({ storage });
 
 // Signup
 router.post("/signup", async (req, res) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(500).json({ message: "Database not connected." });
+  }
   try {
     const { name, email, password, role, portfolioLink } = req.body;
-    if (!name || !email || !password || !role) {
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedName || !trimmedEmail || !password || !role) {
       return res.status(400).json({ message: "All required fields must be filled." });
     }
 
-    const existingUser = await User.findOne({ email });
+    if (trimmedName.length < 2) {
+      return res.status(400).json({ message: "Name must be at least 2 characters long." });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      return res.status(400).json({ message: "Invalid email format." });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters long." });
+    }
+
+    if (!['artist', 'bidder'].includes(role)) {
+      return res.status(400).json({ message: "Invalid role." });
+    }
+
+    const existingUser = await User.findOne({ email: trimmedEmail });
     if (existingUser) return res.status(400).json({ message: "Email already in use." });
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = new User({
-      name,
-      email,
+      name: trimmedName,
+      email: trimmedEmail,
       password: hashedPassword,
       role,
       portfolioLink: role === "artist" ? portfolioLink : undefined,
@@ -46,7 +69,8 @@ router.post("/signup", async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     const { email, password, role } = req.body;
-    const user = await User.findOne({ email, role });
+    const trimmedEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: trimmedEmail, role });
     if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -89,6 +113,36 @@ router.put("/profile", verifyToken, async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     res.json({ success: true, user });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
+
+// Update delivery address
+router.put("/delivery-address", verifyToken, async (req, res) => {
+  try {
+    const { street, city, state, pincode, country } = req.body;
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { deliveryAddress: { street, city, state, pincode, country } },
+      { new: true }
+    ).select("-password");
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.json({ success: true, user });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
+
+// Get delivery address for a user (for artists to view delivery details)
+router.get("/:userId/delivery-address", verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId).select("deliveryAddress");
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.json({ success: true, deliveryAddress: user.deliveryAddress });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
   }

@@ -13,6 +13,7 @@ const artworkSchema = new mongoose.Schema(
     status: { type: String, enum: ["scheduled", "live", "ended", "sold"], default: "scheduled" },
     winningBidder: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     artist: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    isDigital: { type: Boolean, default: false }, // true for digital art, false for physical
   },
   { timestamps: true }
 );

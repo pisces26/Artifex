@@ -69,7 +69,26 @@ const ArtistDashboard = () => {
 
         const paymentsData = await paymentsRes.json();
         if (paymentsData.success) {
-          setPayments(paymentsData.payments);
+          // Fetch delivery addresses for physical artworks
+          const paymentsWithDelivery = await Promise.all(
+            paymentsData.payments.map(async (payment: any) => {
+              if (!payment.artwork.isDigital && payment.status === 'completed') {
+                try {
+                  const userRes = await fetch(`http://localhost:5000/api/users/${payment.bidder._id}/delivery-address`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                  });
+                  const userData = await userRes.json();
+                  if (userData.success) {
+                    payment.deliveryAddress = userData.deliveryAddress;
+                  }
+                } catch (error) {
+                  console.error('Error fetching delivery address:', error);
+                }
+              }
+              return payment;
+            })
+          );
+          setPayments(paymentsWithDelivery);
         }
       } catch (err) {
         console.error(err);
@@ -433,6 +452,14 @@ const ArtistDashboard = () => {
                               <p className="text-sm text-muted-foreground">
                                 Sold to {payment.bidder.name}
                               </p>
+                              {!payment.artwork.isDigital && payment.deliveryAddress && (
+                                <div className="text-xs text-muted-foreground mt-2">
+                                  <p><strong>Delivery Address:</strong></p>
+                                  <p>{payment.deliveryAddress.street}</p>
+                                  <p>{payment.deliveryAddress.city}, {payment.deliveryAddress.state} {payment.deliveryAddress.pincode}</p>
+                                  <p>{payment.deliveryAddress.country}</p>
+                                </div>
+                              )}
                             </div>
                           </div>
                           <div className="text-sm text-muted-foreground">
@@ -454,6 +481,11 @@ const ArtistDashboard = () => {
                           >
                             {payment.status}
                           </Badge>
+                          {payment.status === 'completed' && (
+                            <Button size="sm" variant="outline" className="mt-2">
+                              Bill
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </Card>

@@ -5,8 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Filter, Download, CreditCard, Clock, Trophy, TrendingUp, Loader2 } from 'lucide-react';
+import { Search, Filter, Download, CreditCard, Clock, Trophy, TrendingUp, Loader2, Package } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 
 const UserDashboard = () => {
@@ -16,6 +19,15 @@ const UserDashboard = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [bids, setBids] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deliveryDialogOpen, setDeliveryDialogOpen] = useState(false);
+  const [selectedBid, setSelectedBid] = useState<any>(null);
+  const [deliveryAddress, setDeliveryAddress] = useState({
+    street: '',
+    city: '',
+    state: '',
+    pincode: '',
+    country: 'India'
+  });
 
   // Fetch user's bids
   useEffect(() => {
@@ -117,6 +129,54 @@ const UserDashboard = () => {
 
     // Redirect to payment gateway with payment details
     navigate(`/payment?paymentId=${bid.paymentId}&amount=${bid.finalPrice}&artworkTitle=${encodeURIComponent(bid.artwork.title)}`);
+  };
+
+  const handleDeliveryAddress = (bid: any) => {
+    setSelectedBid(bid);
+    setDeliveryDialogOpen(true);
+  };
+
+  const handleSaveDeliveryAddress = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/auth/delivery-address', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(deliveryAddress),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Delivery address saved successfully",
+        });
+        setDeliveryDialogOpen(false);
+        setSelectedBid(null);
+        // Reset form
+        setDeliveryAddress({
+          street: '',
+          city: '',
+          state: '',
+          pincode: '',
+          country: 'India'
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to save delivery address",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Network error",
+        variant: "destructive",
+      });
+    }
   };
 
   const totalBids = bids.length;
@@ -289,9 +349,38 @@ const UserDashboard = () => {
                                   <CreditCard className="w-4 h-4 mr-1" />
                                   Pay Now
                                 </Button>
-                                <Button size="sm" variant="outline">
-                                  <Download className="w-4 h-4" />
-                                </Button>
+                                {bid.artwork.isDigital && bid.paymentId && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      const link = document.createElement('a');
+                                      link.href = `http://localhost:5000${bid.artwork.image}`;
+                                      link.download = `${bid.artwork.title}.jpg`;
+                                      document.body.appendChild(link);
+                                      link.click();
+                                      document.body.removeChild(link);
+                                    }}
+                                  >
+                                    <Download className="w-4 h-4 mr-1" />
+                                    Download
+                                  </Button>
+                                )}
+                                {!bid.artwork.isDigital && bid.result === 'won' && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleDeliveryAddress(bid)}
+                                  >
+                                    <Package className="w-4 h-4 mr-1" />
+                                    Delivery Address
+                                  </Button>
+                                )}
+                                {bid.paymentId && (
+                                  <Button size="sm" variant="outline">
+                                    Bill
+                                  </Button>
+                                )}
                               </>
                             )}
                             {bid.result === 'outbid' && bid.status === 'live' && (
@@ -310,6 +399,77 @@ const UserDashboard = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Delivery Address Dialog */}
+      <Dialog open={deliveryDialogOpen} onOpenChange={setDeliveryDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delivery Address</DialogTitle>
+            <DialogDescription>
+              Please provide your delivery address for {selectedBid?.artwork.title}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="street">Street Address</Label>
+              <Textarea
+                id="street"
+                placeholder="Enter your street address"
+                value={deliveryAddress.street}
+                onChange={(e) => setDeliveryAddress({...deliveryAddress, street: e.target.value})}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="city">City</Label>
+                <Input
+                  id="city"
+                  placeholder="City"
+                  value={deliveryAddress.city}
+                  onChange={(e) => setDeliveryAddress({...deliveryAddress, city: e.target.value})}
+                />
+              </div>
+              <div>
+                <Label htmlFor="state">State</Label>
+                <Input
+                  id="state"
+                  placeholder="State"
+                  value={deliveryAddress.state}
+                  onChange={(e) => setDeliveryAddress({...deliveryAddress, state: e.target.value})}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="pincode">Pincode</Label>
+                <Input
+                  id="pincode"
+                  placeholder="Pincode"
+                  value={deliveryAddress.pincode}
+                  onChange={(e) => setDeliveryAddress({...deliveryAddress, pincode: e.target.value})}
+                />
+              </div>
+              <div>
+                <Label htmlFor="country">Country</Label>
+                <Input
+                  id="country"
+                  placeholder="Country"
+                  value={deliveryAddress.country}
+                  onChange={(e) => setDeliveryAddress({...deliveryAddress, country: e.target.value})}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setDeliveryDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveDeliveryAddress} className="bg-gradient-primary">
+                Save Address
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

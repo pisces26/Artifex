@@ -79,6 +79,7 @@ export const getMyBids = async (req, res) => {
           artwork: {
             title: artwork.title,
             image: artwork.imageUrl,
+            isDigital: artwork.isDigital,
           },
           myHighestBid: bid.amount,
           currentPrice: artwork.currentBid,
